@@ -192,11 +192,20 @@
             background: #1976D2;
         }
 
+        .btn-remove {
+            background: #ff9800;
+            margin-top: 10px;
+        }
+
+        .btn-remove:hover {
+            background: #f57c00;
+        }
+
         .hidden {
             display: none;
         }
 
-        .alert-overlay {
+        .alert-overlay, .remove-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -209,7 +218,7 @@
             z-index: 1000;
         }
 
-        .alert-box {
+        .alert-box, .remove-box {
             background: white;
             padding: 30px;
             border-radius: 10px;
@@ -221,14 +230,41 @@
             border-top: 5px solid #f44336;
         }
 
-        .alert-box h2 {
-            color: #f44336;
+        .remove-box {
+            border-top: 5px solid #ff9800;
+        }
+
+        .remove-box h2 {
+            color: #ff9800;
             margin-bottom: 15px;
         }
 
-        .alert-box button {
+        .remove-box input {
+            margin-bottom: 20px;
+        }
+
+        .motivo-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             margin-top: 15px;
-            background: #f44336;
+        }
+
+        .motivo-buttons button {
+            margin: 0;
+            background: #ff9800;
+        }
+
+        .motivo-buttons button:hover {
+            background: #f57c00;
+        }
+
+        .btn-cancel {
+            background: #f44336 !important;
+        }
+
+        .btn-cancel:hover {
+            background: #d32f2f !important;
         }
     </style>
 </head>
@@ -273,16 +309,31 @@
                 <button onclick="downloadCSV()" class="btn-secondary">Baixar CSV</button>
             </div>
             
+            <button onclick="openRemoveOverlay()" class="btn-remove">Remover Código</button>
             <button onclick="clearSession()" style="background: #f44336; margin-top: 10px;">Limpar Sessão e Reiniciar</button>
         </div>
     </div>
 
-    <!-- Alert Overlay -->
+    <!-- Alert Overlay (existente) -->
     <div class="alert-overlay" id="alertOverlay">
         <div class="alert-box error">
             <h2>⚠️ ATENÇÃO!</h2>
             <p id="alertMessage"></p>
             <button onclick="closeAlert()">OK</button>
+        </div>
+    </div>
+
+    <!-- Remove Overlay (novo) -->
+    <div class="remove-overlay" id="removeOverlay">
+        <div class="remove-box">
+            <h2>Remover Código</h2>
+            <input type="text" id="removeCodeInput" placeholder="Digite ou bipe o código" autocomplete="off">
+            <div class="motivo-buttons">
+                <button onclick="processRemove('Pacote vazio')">Pacote vazio</button>
+                <button onclick="processRemove('Pacote Avariado')">Pacote Avariado</button>
+                <button onclick="processRemove('Rota errada')">Rota errada</button>
+                <button onclick="closeRemoveOverlay()" class="btn-cancel">Cancelar</button>
+            </div>
         </div>
     </div>
 
@@ -313,6 +364,7 @@
         }
 
         let scannedCodes = [];
+        let removedCodes = []; // Novo array para códigos removidos
         let operatorName = '';
         let routeName = '';
         let currentDate = '';
@@ -333,6 +385,7 @@
                         routeName = data.route;
                         currentDate = data.date;
                         scannedCodes = data.codes || [];
+                        removedCodes = data.removedCodes || []; // Restaurar removidos
                         validCodes = new Set(data.validCodes || []);
                         
                         // Ir direto para tela de bipagem
@@ -343,7 +396,7 @@
                         document.getElementById('displayDate').textContent = currentDate;
                         
                         // Recarregar lista
-                        scannedCodes.forEach(item => addCodeToList(item));
+                        refreshCodesList();
                         document.getElementById('codeInput').focus();
                         return;
                     } else {
@@ -360,6 +413,7 @@
                 route: routeName,
                 date: currentDate,
                 codes: scannedCodes,
+                removedCodes: removedCodes, // Salvar removidos
                 validCodes: Array.from(validCodes)
             };
             localStorage.setItem('bipagem_session', JSON.stringify(sessionData));
@@ -494,6 +548,8 @@
             const list = document.getElementById('codesList');
             const div = document.createElement('div');
             div.className = 'code-item';
+            div.setAttribute('data-code', item.code);
+            div.setAttribute('data-time', item.time);
             
             if (item.isDuplicate) {
                 div.classList.add('duplicate');
@@ -509,14 +565,22 @@
             list.insertBefore(div, list.firstChild);
         }
 
+        // Função para recriar toda a lista a partir do array scannedCodes
+        function refreshCodesList() {
+            const list = document.getElementById('codesList');
+            list.innerHTML = '';
+            // Exibir em ordem reversa (mais recentes primeiro)
+            scannedCodes.slice().reverse().forEach(item => addCodeToList(item));
+        }
+
         function generateFilename(extension) {
             const date = currentDate.replace(/\//g, '-');
             return `${operatorName}_${routeName}_${date}.${extension}`;
         }
 
         function downloadTXT() {
-            if (validCodes.size === 0) {
-                alert('Nenhum código válido para baixar!');
+            if (validCodes.size === 0 && removedCodes.length === 0) {
+                alert('Nenhum dado para baixar!');
                 return;
             }
 
@@ -526,11 +590,23 @@
             let content = `Operador: ${operatorName}\n`;
             content += `Rota: ${routeName}\n`;
             content += `Data: ${currentDate}\n`;
-            content += `\n--- CÓDIGOS VÁLIDOS (com hora) ---\n\n`;
+            
+            if (validItems.length > 0) {
+                content += `\n--- CÓDIGOS VÁLIDOS (com hora) ---\n\n`;
+                validItems.forEach(item => {
+                    content += `${item.code} - ${item.time}\n`;
+                });
+            }
 
-            validItems.forEach(item => {
-                content += `${item.code} - ${item.time}\n`;
-            });
+            if (removedCodes.length > 0) {
+                content += `\n--- CÓDIGOS REMOVIDOS ---\n\n`;
+                removedCodes.forEach(r => {
+                    content += `Código: ${r.code}\n`;
+                    content += `  Bipado em: ${r.originalTime}\n`;
+                    content += `  Removido em: ${r.removalTime}\n`;
+                    content += `  Motivo: ${r.motivo}\n\n`;
+                });
+            }
 
             const blob = new Blob([content], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
@@ -542,21 +618,30 @@
         }
 
         function downloadCSV() {
-            if (validCodes.size === 0) {
-                alert('Nenhum código válido para baixar!');
+            if (validCodes.size === 0 && removedCodes.length === 0) {
+                alert('Nenhum dado para baixar!');
                 return;
             }
 
-            // Filtrar apenas os itens válidos e não duplicados (primeira ocorrência)
             const validItems = scannedCodes.filter(item => item.isValid && !item.isDuplicate);
 
             let content = `Operador,Rota,Data\n`;
             content += `${operatorName},${routeName},${currentDate}\n\n`;
-            content += `Código,Hora\n`;
+            
+            if (validItems.length > 0) {
+                content += `Código,Hora\n`;
+                validItems.forEach(item => {
+                    content += `${item.code},${item.time}\n`;
+                });
+            }
 
-            validItems.forEach(item => {
-                content += `${item.code},${item.time}\n`;
-            });
+            if (removedCodes.length > 0) {
+                content += `\n\n--- CÓDIGOS REMOVIDOS ---\n\n`;
+                content += `Código,Hora Bipagem,Hora Remoção,Motivo\n`;
+                removedCodes.forEach(r => {
+                    content += `${r.code},${r.originalTime},${r.removalTime},${r.motivo}\n`;
+                });
+            }
 
             const blob = new Blob([content], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
@@ -574,10 +659,81 @@
             }
         }
 
-        // Manter foco no input
+        // Funções para o overlay de remoção
+        function openRemoveOverlay() {
+            document.getElementById('removeOverlay').style.display = 'flex';
+            document.getElementById('removeCodeInput').value = '';
+            document.getElementById('removeCodeInput').focus();
+        }
+
+        function closeRemoveOverlay() {
+            document.getElementById('removeOverlay').style.display = 'none';
+            document.getElementById('codeInput').focus();
+        }
+
+        function processRemove(motivo) {
+            const codeInput = document.getElementById('removeCodeInput');
+            const code = codeInput.value.trim().toUpperCase();
+            
+            if (!code) {
+                alert('Digite ou bipe um código!');
+                return;
+            }
+
+            // Encontrar todas as ocorrências do código em scannedCodes
+            const indices = [];
+            scannedCodes.forEach((item, index) => {
+                if (item.code === code) indices.push(index);
+            });
+
+            if (indices.length === 0) {
+                alert('Código não encontrado na lista!');
+                codeInput.value = '';
+                codeInput.focus();
+                return;
+            }
+
+            const removalTime = new Date().toLocaleTimeString('pt-BR');
+
+            // Para cada ocorrência, adicionar a removedCodes e remover de validCodes se necessário
+            indices.reverse().forEach(index => {
+                const removedItem = scannedCodes[index];
+                
+                // Adicionar ao array de removidos
+                removedCodes.push({
+                    code: removedItem.code,
+                    originalTime: removedItem.time,
+                    removalTime: removalTime,
+                    motivo: motivo
+                });
+
+                // Remover de validCodes se estava lá
+                if (removedItem.isValid && !removedItem.isDuplicate) {
+                    validCodes.delete(removedItem.code);
+                }
+
+                // Remover do array scannedCodes
+                scannedCodes.splice(index, 1);
+            });
+
+            // Salvar sessão
+            saveSession();
+
+            // Atualizar a lista visual
+            refreshCodesList();
+
+            // Fechar overlay e focar no input principal
+            closeRemoveOverlay();
+
+            // Pequeno feedback
+            alert(`Código(s) ${code} removido(s) com sucesso!`);
+        }
+
+        // Manter foco no input principal
         setInterval(() => {
             if (document.getElementById('scanScreen').style.display === 'block') {
-                if (document.getElementById('alertOverlay').style.display !== 'flex') {
+                if (document.getElementById('alertOverlay').style.display !== 'flex' && 
+                    document.getElementById('removeOverlay').style.display !== 'flex') {
                     document.getElementById('codeInput').focus();
                 }
             }
