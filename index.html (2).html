@@ -314,7 +314,7 @@
         </div>
     </div>
 
-    <!-- Alert Overlay (existente) -->
+    <!-- Alert Overlay -->
     <div class="alert-overlay" id="alertOverlay">
         <div class="alert-box error">
             <h2>⚠️ ATENÇÃO!</h2>
@@ -323,7 +323,7 @@
         </div>
     </div>
 
-    <!-- Remove Overlay (novo) -->
+    <!-- Remove Overlay -->
     <div class="remove-overlay" id="removeOverlay">
         <div class="remove-box">
             <h2>Remover Código</h2>
@@ -376,10 +376,8 @@
             const savedData = localStorage.getItem('bipagem_session');
             if (savedData) {
                 const data = JSON.parse(savedData);
-                // Verificar se é a mesma sessão (mesmo dia)
                 const today = new Date().toLocaleDateString('pt-BR');
                 if (data.date === today && data.operator && data.route) {
-                    // Perguntar se quer continuar
                     if (confirm(`Continuar sessão de ${data.operator} na rota ${data.route}?`)) {
                         operatorName = data.operator;
                         routeName = data.route;
@@ -388,14 +386,12 @@
                         removedCodes = data.removedCodes || [];
                         validCodes = new Set(data.validCodes || []);
                         
-                        // Ir direto para tela de bipagem
                         document.getElementById('initialScreen').style.display = 'none';
                         document.getElementById('scanScreen').style.display = 'block';
                         document.getElementById('displayOperator').textContent = operatorName;
                         document.getElementById('displayRoute').textContent = routeName;
                         document.getElementById('displayDate').textContent = currentDate;
                         
-                        // Recarregar lista
                         refreshCodesList();
                         document.getElementById('codeInput').focus();
                         return;
@@ -406,7 +402,6 @@
             }
         });
 
-        // Salvar dados automaticamente
         function saveSession() {
             const sessionData = {
                 operator: operatorName,
@@ -419,7 +414,6 @@
             localStorage.setItem('bipagem_session', JSON.stringify(sessionData));
         }
 
-        // Inicializar data atual
         window.onload = function() {
             const today = new Date();
             const dateStr = today.toLocaleDateString('pt-BR');
@@ -442,17 +436,14 @@
             document.getElementById('displayRoute').textContent = routeName;
             document.getElementById('displayDate').textContent = currentDate;
 
-            // Focar no input
             document.getElementById('codeInput').focus();
         }
 
-        // Validar padrão do código
         function isValidCode(code) {
             const pattern = /^BR[0-9A-Z]+$/;
             return pattern.test(code) && code.length > 2;
         }
 
-        // Criar som de alerta forte
         function playAlertSound() {
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -474,7 +465,6 @@
                 oscillator.stop();
             }, 500);
 
-            // Segundo beep
             setTimeout(() => {
                 const osc2 = audioContext.createOscillator();
                 const gain2 = audioContext.createGain();
@@ -498,7 +488,6 @@
             document.getElementById('codeInput').focus();
         }
 
-        // Processar código bipado
         document.getElementById('codeInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
@@ -519,18 +508,13 @@
 
                 scannedCodes.push(codeItem);
 
-                // Adicionar à lista de códigos válidos (sem duplicados)
                 if (isValid && !isDuplicate) {
                     validCodes.add(code);
                 }
 
-                // Salvar sessão
                 saveSession();
-
-                // Adicionar à lista visual
                 addCodeToList(codeItem);
 
-                // Alertas
                 if (isDuplicate) {
                     playAlertSound();
                     showAlert('CÓDIGO DUPLICADO!\n' + code);
@@ -539,7 +523,6 @@
                     showAlert('CÓDIGO FORA DO PADRÃO!\n' + code);
                 }
 
-                // Limpar input
                 this.value = '';
             }
         });
@@ -565,19 +548,15 @@
             list.insertBefore(div, list.firstChild);
         }
 
-        // Função para recriar toda a lista a partir do array scannedCodes
         function refreshCodesList() {
             const list = document.getElementById('codesList');
             list.innerHTML = '';
-            // Exibir em ordem reversa (mais recentes primeiro)
             scannedCodes.slice().reverse().forEach(item => addCodeToList(item));
         }
 
-        // Função modificada para gerar nome do arquivo no padrão AT + data atual
         function generateFilename(extension) {
-            // currentDate está no formato dd/mm/aaaa
             const parts = currentDate.split('/');
-            const dataSemBarras = parts[0] + parts[1] + parts[2]; // ddmmaaaa
+            const dataSemBarras = parts[0] + parts[1] + parts[2];
             return `AT${dataSemBarras}.${extension}`;
         }
 
@@ -587,15 +566,21 @@
                 return;
             }
 
-            // Filtrar apenas os itens válidos e não duplicados (primeira ocorrência)
             const validItems = scannedCodes.filter(item => item.isValid && !item.isDuplicate);
 
             let content = `Operador: ${operatorName}\n`;
             content += `Rota: ${routeName}\n`;
-            content += `Data: ${currentDate}\n`;
+            content += `Data: ${currentDate}\n\n`;
             
             if (validItems.length > 0) {
-                content += `\n--- CÓDIGOS VÁLIDOS (com hora) ---\n\n`;
+                // Primeira lista: apenas códigos (um por linha)
+                content += `--- CÓDIGOS VÁLIDOS (lista simples) ---\n\n`;
+                validItems.forEach(item => {
+                    content += `${item.code}\n`;
+                });
+                
+                // Segunda lista: códigos com hora
+                content += `\n--- CÓDIGOS VÁLIDOS COM HORA ---\n\n`;
                 validItems.forEach(item => {
                     content += `${item.code} - ${item.time}\n`;
                 });
@@ -662,7 +647,6 @@
             }
         }
 
-        // Funções para o overlay de remoção
         function openRemoveOverlay() {
             document.getElementById('removeOverlay').style.display = 'flex';
             document.getElementById('removeCodeInput').value = '';
@@ -683,7 +667,6 @@
                 return;
             }
 
-            // Encontrar todas as ocorrências do código em scannedCodes
             const indices = [];
             scannedCodes.forEach((item, index) => {
                 if (item.code === code) indices.push(index);
@@ -698,11 +681,9 @@
 
             const removalTime = new Date().toLocaleTimeString('pt-BR');
 
-            // Para cada ocorrência, adicionar a removedCodes e remover de validCodes se necessário
             indices.reverse().forEach(index => {
                 const removedItem = scannedCodes[index];
                 
-                // Adicionar ao array de removidos
                 removedCodes.push({
                     code: removedItem.code,
                     originalTime: removedItem.time,
@@ -710,29 +691,19 @@
                     motivo: motivo
                 });
 
-                // Remover de validCodes se estava lá
                 if (removedItem.isValid && !removedItem.isDuplicate) {
                     validCodes.delete(removedItem.code);
                 }
 
-                // Remover do array scannedCodes
                 scannedCodes.splice(index, 1);
             });
 
-            // Salvar sessão
             saveSession();
-
-            // Atualizar a lista visual
             refreshCodesList();
-
-            // Fechar overlay e focar no input principal
             closeRemoveOverlay();
-
-            // Pequeno feedback
             alert(`Código(s) ${code} removido(s) com sucesso!`);
         }
 
-        // Manter foco no input principal
         setInterval(() => {
             if (document.getElementById('scanScreen').style.display === 'block') {
                 if (document.getElementById('alertOverlay').style.display !== 'flex' && 
