@@ -520,13 +520,16 @@
                 return;
             }
 
+            // Filtrar apenas os itens válidos e não duplicados (primeira ocorrência)
+            const validItems = scannedCodes.filter(item => item.isValid && !item.isDuplicate);
+
             let content = `Operador: ${operatorName}\n`;
             content += `Rota: ${routeName}\n`;
             content += `Data: ${currentDate}\n`;
-            content += `\n--- CÓDIGOS VÁLIDOS ---\n\n`;
+            content += `\n--- CÓDIGOS VÁLIDOS (com hora) ---\n\n`;
 
-            validCodes.forEach(code => {
-                content += code + '\n';
+            validItems.forEach(item => {
+                content += `${item.code} - ${item.time}\n`;
             });
 
             const blob = new Blob([content], { type: 'text/plain' });
@@ -544,12 +547,15 @@
                 return;
             }
 
+            // Filtrar apenas os itens válidos e não duplicados (primeira ocorrência)
+            const validItems = scannedCodes.filter(item => item.isValid && !item.isDuplicate);
+
             let content = `Operador,Rota,Data\n`;
             content += `${operatorName},${routeName},${currentDate}\n\n`;
-            content += `Código\n`;
+            content += `Código,Hora\n`;
 
-            validCodes.forEach(code => {
-                content += code + '\n';
+            validItems.forEach(item => {
+                content += `${item.code},${item.time}\n`;
             });
 
             const blob = new Blob([content], { type: 'text/csv' });
