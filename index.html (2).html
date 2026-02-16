@@ -364,7 +364,7 @@
         }
 
         let scannedCodes = [];
-        let removedCodes = []; // Novo array para códigos removidos
+        let removedCodes = [];
         let operatorName = '';
         let routeName = '';
         let currentDate = '';
@@ -385,7 +385,7 @@
                         routeName = data.route;
                         currentDate = data.date;
                         scannedCodes = data.codes || [];
-                        removedCodes = data.removedCodes || []; // Restaurar removidos
+                        removedCodes = data.removedCodes || [];
                         validCodes = new Set(data.validCodes || []);
                         
                         // Ir direto para tela de bipagem
@@ -413,7 +413,7 @@
                 route: routeName,
                 date: currentDate,
                 codes: scannedCodes,
-                removedCodes: removedCodes, // Salvar removidos
+                removedCodes: removedCodes,
                 validCodes: Array.from(validCodes)
             };
             localStorage.setItem('bipagem_session', JSON.stringify(sessionData));
@@ -573,9 +573,12 @@
             scannedCodes.slice().reverse().forEach(item => addCodeToList(item));
         }
 
+        // Função modificada para gerar nome do arquivo no padrão AT + data atual
         function generateFilename(extension) {
-            const date = currentDate.replace(/\//g, '-');
-            return `${operatorName}_${routeName}_${date}.${extension}`;
+            // currentDate está no formato dd/mm/aaaa
+            const parts = currentDate.split('/');
+            const dataSemBarras = parts[0] + parts[1] + parts[2]; // ddmmaaaa
+            return `AT${dataSemBarras}.${extension}`;
         }
 
         function downloadTXT() {
